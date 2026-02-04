@@ -2,7 +2,7 @@ using System.Net.Http.Json;
 
 namespace Categoriser.Api.Services;
 
-public sealed class FinnhubService(HttpClient httpClient, IConfiguration configuration)
+public sealed class FinnhubService(IHttpClientFactory httpClientFactory, IConfiguration configuration)
 {
     public async Task<FinnhubProfile?> GetProfileAsync(string isin, CancellationToken cancellationToken)
     {
@@ -13,6 +13,7 @@ public sealed class FinnhubService(HttpClient httpClient, IConfiguration configu
             return null;
         }
 
+        using var httpClient = httpClientFactory.CreateClient("Finnhub");
         var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/stock/profile2?isin={Uri.EscapeDataString(isin)}");
         request.Headers.Add("X-Finnhub-Token", secret);
         var response = await httpClient.SendAsync(request, cancellationToken);
@@ -39,6 +40,7 @@ public sealed class FinnhubService(HttpClient httpClient, IConfiguration configu
             return null;
         }
 
+        using var httpClient = httpClientFactory.CreateClient("Finnhub");
         var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/search?q={Uri.EscapeDataString(query)}");
         request.Headers.Add("X-Finnhub-Token", secret);
         var response = await httpClient.SendAsync(request, cancellationToken);

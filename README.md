@@ -10,15 +10,22 @@ Diese Version des Projekts wurde auf **.NET 8**, **Vue 3** und **Entity Framewor
 ## Projektstruktur
 
 ```
-server/   ASP.NET Core API (.NET 8, EF Core, SQLite)
+server/   ASP.NET Core Library (Controller + Services)
 client/   Vue 3 Frontend (Vite)
 ```
 
-## Backend Setup (server)
+## Backend Integration (server)
 
-### 1) Konfiguration
+Das Backend ist als **Library** aufgebaut. Ein Host-Projekt bindet die Services + Controller so ein:
 
-Lege eine `server/appsettings.Development.json` an oder nutze Umgebungsvariablen:
+```csharp
+builder.Services.AddCategoriser(builder.Configuration);
+app.UseCategoriser();
+```
+
+### Konfiguration
+
+Lege eine `appsettings.Development.json` an oder nutze Umgebungsvariablen:
 
 ```json
 {
@@ -34,15 +41,6 @@ Lege eine `server/appsettings.Development.json` an oder nutze Umgebungsvariablen
   }
 }
 ```
-
-### 2) Starten
-
-```bash
-cd server
-DOTNET_ENVIRONMENT=Development dotnet run
-```
-
-Die API läuft standardmäßig auf `http://localhost:5000`.
 
 ## Frontend Setup (client)
 

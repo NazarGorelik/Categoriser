@@ -1,5 +1,7 @@
+using System.Data;
 using Categoriser.Api.Models;
-using ClosedXML.Excel;
+using NPOI.SS.UserModel;
+using NPOI.XSSF.UserModel;
 
 namespace Categoriser.Api.Services;
 
@@ -7,61 +9,80 @@ public sealed class ExcelExportService
 {
     public byte[] ExportSingleSheet(IEnumerable<JobRow> rows)
     {
-        using var workbook = new XLWorkbook();
-        var worksheet = workbook.AddWorksheet("Kategorien");
-        WriteHeaders(worksheet);
-        WriteRows(worksheet, rows);
+        var table = BuildTable(rows);
+        using var workbook = new XSSFWorkbook();
+        WriteTableToSheet(workbook, "Kategorien", table);
         return Save(workbook);
     }
 
     public byte[] ExportByCategory(IEnumerable<JobRow> rows)
     {
-        using var workbook = new XLWorkbook();
-        var grouped = rows.GroupBy(row => row.Category);
-        foreach (var group in grouped)
+        using var workbook = new XSSFWorkbook();
+        foreach (var group in rows.GroupBy(row => row.Category))
         {
             var name = string.IsNullOrWhiteSpace(group.Key) ? "Unbekannt" : group.Key;
-            var worksheet = workbook.AddWorksheet(SanitizeSheetName(name));
-            WriteHeaders(worksheet);
-            WriteRows(worksheet, group);
+            var table = BuildTable(group);
+            WriteTableToSheet(workbook, SanitizeSheetName(name), table);
         }
 
         return Save(workbook);
     }
 
-    private static void WriteHeaders(IXLWorksheet worksheet)
+    private static DataTable BuildTable(IEnumerable<JobRow> rows)
     {
-        worksheet.Cell(1, 1).Value = "ISIN";
-        worksheet.Cell(1, 2).Value = "Name";
-        worksheet.Cell(1, 3).Value = "WKN";
-        worksheet.Cell(1, 4).Value = "Kategorie";
-        worksheet.Cell(1, 5).Value = "Unterkategorie";
-        worksheet.Cell(1, 6).Value = "Position";
-        worksheet.Cell(1, 7).Value = "Fehler";
-    }
+        var table = new DataTable();
+        table.Columns.Add("ISIN");
+        table.Columns.Add("Name");
+        table.Columns.Add("WKN");
+        table.Columns.Add("Kategorie");
+        table.Columns.Add("Unterkategorie");
+        table.Columns.Add("Position");
+        table.Columns.Add("Fehler");
 
-    private static void WriteRows(IXLWorksheet worksheet, IEnumerable<JobRow> rows)
-    {
-        var rowIndex = 2;
         foreach (var row in rows)
         {
-            worksheet.Cell(rowIndex, 1).Value = row.Isin;
-            worksheet.Cell(rowIndex, 2).Value = row.Name;
-            worksheet.Cell(rowIndex, 3).Value = row.Wkn;
-            worksheet.Cell(rowIndex, 4).Value = row.Category;
-            worksheet.Cell(rowIndex, 5).Value = row.SubCategory;
-            worksheet.Cell(rowIndex, 6).Value = row.PositionType;
-            worksheet.Cell(rowIndex, 7).Value = row.Error;
-            rowIndex++;
+            var dataRow = table.NewRow();
+            dataRow["ISIN"] = row.Isin;
+            dataRow["Name"] = row.Name;
+            dataRow["WKN"] = row.Wkn;
+            dataRow["Kategorie"] = row.Category;
+            dataRow["Unterkategorie"] = row.SubCategory;
+            dataRow["Position"] = row.PositionType;
+            dataRow["Fehler"] = row.Error;
+            table.Rows.Add(dataRow);
         }
 
-        worksheet.Columns().AdjustToContents();
+        return table;
     }
 
-    private static byte[] Save(XLWorkbook workbook)
+    private static void WriteTableToSheet(IWorkbook workbook, string sheetName, DataTable table)
+    {
+        var worksheet = workbook.CreateSheet(sheetName);
+        var headerRow = worksheet.CreateRow(0);
+        for (var col = 0; col < table.Columns.Count; col++)
+        {
+            headerRow.CreateCell(col).SetCellValue(table.Columns[col].ColumnName);
+        }
+
+        for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+        {
+            var worksheetRow = worksheet.CreateRow(rowIndex + 1);
+            for (var col = 0; col < table.Columns.Count; col++)
+            {
+                worksheetRow.CreateCell(col).SetCellValue(table.Rows[rowIndex][col]?.ToString() ?? string.Empty);
+            }
+        }
+
+        for (var col = 0; col < table.Columns.Count; col++)
+        {
+            worksheet.AutoSizeColumn(col);
+        }
+    }
+
+    private static byte[] Save(IWorkbook workbook)
     {
         using var stream = new MemoryStream();
-        workbook.SaveAs(stream);
+        workbook.Write(stream, true);
         return stream.ToArray();
     }
 
